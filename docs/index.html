@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>regexkit — Agentic Regex Service</title>
+<style>
+:root {
+  --bg: #0d1117;
+  --fg: #c9d1d9;
+  --accent: #58a6ff;
+  --border: #30363d;
+  --code-bg: #161b22;
+  --green: #7ee787;
+  --orange: #ffa657;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--fg);
+  line-height: 1.6;
+  padding: 2rem;
+  max-width: 900px;
+  margin: 0 auto;
+}
+h1 { color: var(--accent); font-size: 2rem; margin-bottom: 0.5rem; }
+h2 { color: var(--green); font-size: 1.3rem; margin: 2rem 0 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.3rem; }
+h3 { color: var(--orange); font-size: 1.1rem; margin: 1.5rem 0 0.5rem; }
+p { margin-bottom: 0.8rem; }
+code { background: var(--code-bg); padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.9rem; color: var(--green); }
+pre { background: var(--code-bg); padding: 1rem; border-radius: 8px; overflow-x: auto; margin: 0.5rem 0 1rem; border: 1px solid var(--border); }
+pre code { background: none; padding: 0; color: var(--fg); }
+table { width: 100%; border-collapse: collapse; margin: 0.5rem 0 1rem; }
+th, td { border: 1px solid var(--border); padding: 0.5rem 0.8rem; text-align: left; }
+th { background: var(--code-bg); color: var(--accent); }
+.badge { display: inline-block; background: var(--accent); color: var(--bg); padding: 0.2rem 0.6rem; border-radius: 12px; font-size: 0.8rem; font-weight: 600; }
+.subtitle { color: var(--fg); opacity: 0.7; margin-bottom: 2rem; }
+.endpoint { display: flex; gap: 0.5rem; align-items: center; margin: 0.3rem 0; }
+.method { font-weight: bold; padding: 0.1rem 0.5rem; border-radius: 4px; font-size: 0.85rem; }
+.method-post { background: #1a7f37; color: #fff; }
+.method-get { background: #0969da; color: #fff; }
+.method-delete { background: #cf222e; color: #fff; }
+.path { color: var(--green); font-family: monospace; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<h1>regexkit <span class="badge">v0.1.0</span></h1>
+<p class="subtitle">Agentic-first regex testing and pattern matching service. Test patterns, extract matches, validate input, replace, and split text — all over plain HTTP, designed for AI agents.</p>
+
+<h2>Principles</h2>
+<ul>
+<li><strong>The agent IS the interface</strong> — No UI, no SDK. The API is the product.</li>
+<li><strong>Plain text by default</strong> — One labeled, grepable line per record. JSON on demand via <code>?format=json</code> or <code>Accept: application/json</code>.</li>
+<li><strong>Instructive errors</strong> — Every 4xx includes a hint telling the agent what to do next.</li>
+<li><strong>Self-documenting</strong> — <code>GET /help</code> returns a one-page operating manual.</li>
+<li><strong>Simple auth</strong> — OTP via email → long-lived bearer token.</li>
+<li><strong>Single static binary</strong> — Go + JSON file storage, zero external dependencies.</li>
+<li><strong>MCP connector</strong> — Speaks Model Context Protocol at <code>/mcp</code>.</li>
+</ul>
+
+<h2>Quick Start</h2>
+<pre><code># Build and run
+make build && ./regexkit
+
+# Or with Go
+go run ./cmd/regexkit</code></pre>
+
+<h2>Authentication</h2>
+<pre><code># 1. Request OTP
+curl -X POST http://localhost:7700/auth/request \
+  -d '{"email":"you@example.com"}' \
+  -H 'Content-Type: application/json'
+# status=otp_sent code=123456
+
+# 2. Verify OTP → get token
+curl -X POST http://localhost:7700/auth/verify \
+  -d '{"email":"you@example.com","code":"123456"}' \
+  -H 'Content-Type: application/json'
+# token=abc123... workspace=ws_xxxxx</code></pre>
+
+<h2>API Endpoints</h2>
+
+<h3>Regex Operations</h3>
+<div class="endpoint"><span class="method method-post">POST</span><span class="path">/test</span></div>
+<p>Test a pattern against input, finding all matches.</p>
+<pre><code>curl -X POST http://localhost:7700/test \
+  -H "Authorization: Bearer &lt;token&gt;" \
+  -d 'pattern=\d+&input=hello123world456'
+# matched=true count=2 match[0]=123 start=5 end=8 match[1]=456 start=14 end=17</code></pre>
+
+<div class="endpoint"><span class="method method-post">POST</span><span class="path">/match</span></div>
+<p>Find the first match with capture groups.</p>
+<pre><code>curl -X POST http://localhost:7700/match \
+  -H "Authorization: Bearer &lt;token&gt;" \
+  -d 'pattern=(\w+)@(\w+)\.(\w+)&input=user@example.com'
+# matched=true full=user@example.com start=0 end=15 1=user 2=example 3=com</code></pre>
+
+<div class="endpoint"><span class="method method-post">POST</span><span class="path">/replace</span></div>
+<p>Replace all matches in input.</p>
+<pre><code>curl -X POST http://localhost:7700/replace \
+  -H "Authorization: Bearer &lt;token&gt;" \
+  -d 'pattern=\d+&input=hello123&replacement=NUM'
+# result=helloNUM count=1</code></pre>
+
+<div class="endpoint"><span class="method method-post">POST</span><span class="path">/split</span></div>
+<p>Split input on pattern matches.</p>
+<pre><code>curl -X POST http://localhost:7700/split \
+  -H "Authorization: Bearer &lt;token&gt;" \
+  -d 'pattern=[,;]&input=a,b;c'
+# count=3 [0]=a [1]=b [2]=c</code></pre>
+
+<div class="endpoint"><span class="method method-post">POST</span><span class="path">/validate</span></div>
+<p>Check if a pattern compiles.</p>
+<pre><code>curl -X POST http://localhost:7700/validate \
+  -H "Authorization: Bearer &lt;token&gt;" \
+  -d 'pattern=\d+\w+'
+# valid=true</code></pre>
+
+<h3>Pattern CRUD</h3>
+<div class="endpoint"><span class="method method-post">POST</span><span class="path">/patterns</span></div>
+<p>Save a named pattern for reuse.</p>
+<pre><code>curl -X POST http://localhost:7700/patterns \
+  -H "Authorization: Bearer &lt;token&gt;" \
+  -d '{"name":"email","pattern":"\\w+@\\w+\\.\\w+"}' \
+  -H 'Content-Type: application/json'
+# handle=pat_a1b2c name=email pattern=\w+@\w+\.\w+ flags=</code></pre>
+
+<div class="endpoint"><span class="method method-get">GET</span><span class="path">/patterns</span></div>
+<p>List all saved patterns.</p>
+
+<div class="endpoint"><span class="method method-get">GET</span><span class="path">/patterns/{handle}</span></div>
+<p>Get a specific pattern by handle.</p>
+
+<div class="endpoint"><span class="method method-delete">DELETE</span><span class="path">/patterns/{handle}</span></div>
+<p>Delete a saved pattern.</p>
+
+<h3>MCP</h3>
+<div class="endpoint"><span class="method method-post">POST</span><span class="path">/mcp</span></div>
+<p>Model Context Protocol endpoint for chat client integrations. Supports <code>initialize</code>, <code>tools/list</code>, and <code>tools/call</code> methods.</p>
+
+<h3>Help</h3>
+<div class="endpoint"><span class="method method-get">GET</span><span class="path">/help</span></div>
+<p>Returns a one-page operating manual. Also available at <code>/.well-known/agent.md</code>.</p>
+
+<h2>Flags</h2>
+<table>
+<tr><th>Flag</th><th>Description</th></tr>
+<tr><td><code>i</code></td><td>Case-insensitive matching</td></tr>
+<tr><td><code>m</code></td><td>Multiline mode (^ and $ match line boundaries)</td></tr>
+<tr><td><code>s</code></td><td>Dotall mode (. matches newline)</td></tr>
+</table>
+
+<h2>Response Format</h2>
+<p>Plain text by default — one labeled, grepable line per record. Add <code>?format=json</code> or set <code>Accept: application/json</code> for JSON responses. Errors include a <code>hint</code> field for self-correction.</p>
+
+<h2>Configuration</h2>
+<table>
+<tr><th>Flag</th><th>Env</th><th>Default</th><th>Description</th></tr>
+<tr><td><code>-addr</code></td><td><code>REGEXKIT_ADDR</code></td><td>:7700</td><td>Listen address</td></tr>
+<tr><td><code>-db</code></td><td><code>REGEXKIT_DB</code></td><td>regexkit.json</td><td>Data file path</td></tr>
+<tr><td><code>-secret</code></td><td><code>REGEXKIT_SECRET</code></td><td>(random)</td><td>Auth token signing secret</td></tr>
+</table>
+
+<h2>Build</h2>
+<pre><code>make build    # Build binary
+make test     # Run tests with race detector
+make vet      # Run go vet
+make run      # Build and run</code></pre>
+
+<h2>License</h2>
+<p>MIT</p>
+</body>
+</html>

@@ -1,10 +1,8 @@
-@Ipresulting
-.PSHONY: build test vet run clean
+.PHONY: build test vet run clean
 
 BINARY = regexkit
 
 build:
-
 	CGO_ENABLED=0 go build -trimpath -o $(BINARY) ./cmd/$(BINARY)
 
 test:

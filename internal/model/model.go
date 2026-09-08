@@ -51,7 +51,7 @@ Count   int            `json:"count"`
 }
 
 // CompileRegex compiles a pattern with the given flags
-func CompileRegex(pattern, flags string) (*regexp.Regex, error) {
+func CompileRegex(pattern, flags string) (*regexp.Regexp, error) {
 	prefix := ""
 	if strings.Contains(flags, "i") {
 		prefix += "i"
